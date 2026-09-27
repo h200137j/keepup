@@ -7,12 +7,16 @@ import '../models/media_item.dart';
 import 'countdown_provider.dart';
 import 'isar_provider.dart';
 
-/// Seeds mock data on first launch, then exposes the live collection.
-/// Depending on this provider guarantees the DB is ready and non-empty.
+/// Flip to true to repopulate an empty DB with demo titles on first launch.
+/// Off while testing against a genuinely empty DB.
+const _seedMockDataOnEmpty = false;
+
+/// Seeds mock data on first launch (if enabled), then exposes the live
+/// collection. Depending on this provider guarantees the DB is ready.
 final mediaListProvider = StreamProvider<List<MediaItem>>((ref) async* {
   final isar = await ref.watch(isarProvider.future);
 
-  if (await isar.mediaItems.count() == 0) {
+  if (_seedMockDataOnEmpty && await isar.mediaItems.count() == 0) {
     await isar.writeTxn(() => isar.mediaItems.putAll(buildMockMediaItems()));
   }
 
