@@ -7,27 +7,43 @@ List<MediaItem> buildMockMediaItems() {
 
   return [
     // --- TV -----------------------------------------------------------
+    // Airing on its normal weekly slot — no manual override, so the
+    // countdown comes straight from releaseDayOfWeek.
     MediaItem()
-      ..title = 'Nocturne City'
+      ..title = 'Stranger Things'
       ..baseType = MediaBaseType.tv
-      ..tvData = (TvData()
-        ..currentSeason = 3
-        ..status = TvStatus.airing
-        ..releaseDayOfWeek = now.weekday),
-    MediaItem()
-      ..title = 'The Long Signal'
-      ..baseType = MediaBaseType.tv
-      ..tvData = (TvData()
-        ..currentSeason = 1
-        ..status = TvStatus.airing
-        ..releaseDayOfWeek = ((now.weekday + 3 - 1) % 7) + 1),
-    MediaItem()
-      ..title = 'Harbor Lights'
-      ..baseType = MediaBaseType.tv
+      ..posterImagePath = 'https://static.tvmaze.com/uploads/images/original_untouched/595/1489169.jpg'
       ..tvData = (TvData()
         ..currentSeason = 5
-        ..status = TvStatus.hiatus
-        ..releaseDayOfWeek = ((now.weekday + 6 - 1) % 7) + 1),
+        ..status = TvStatus.airing
+        ..releaseDayOfWeek = now.weekday
+        ..nextEpisodeNumber = 3
+        ..totalEpisodes = 8),
+    // Already-watching example: added partway through, ep 7 of 10.
+    MediaItem()
+      ..title = 'Severance'
+      ..baseType = MediaBaseType.tv
+      ..posterImagePath = 'https://static.tvmaze.com/uploads/images/original_untouched/548/1371406.jpg'
+      ..tvData = (TvData()
+        ..currentSeason = 2
+        ..status = TvStatus.airing
+        ..releaseDayOfWeek = ((now.weekday + 3 - 1) % 7) + 1
+        ..nextEpisodeNumber = 7
+        ..totalEpisodes = 10),
+    // Manual-delay example: normally Thursdays, but this week's episode
+    // got pushed — nextEpisodeDate overrides the weekday countdown until
+    // it's cleared.
+    MediaItem()
+      ..title = 'The Bear'
+      ..baseType = MediaBaseType.tv
+      ..posterImagePath = 'https://static.tvmaze.com/uploads/images/original_untouched/629/1574642.jpg'
+      ..tvData = (TvData()
+        ..currentSeason = 4
+        ..status = TvStatus.airing
+        ..releaseDayOfWeek = ((now.weekday + 6 - 1) % 7) + 1
+        ..nextEpisodeNumber = 5
+        ..totalEpisodes = 10
+        ..nextEpisodeDate = now.add(const Duration(days: 9, hours: 3))),
 
     // --- Movie ----------------------------------------------------------
     MediaItem()

@@ -1,8 +1,12 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:slide_countdown/slide_countdown.dart';
 
+import '../models/media_item.dart';
 import '../providers/media_provider.dart';
 import '../screens/detail_screen.dart';
+import 'fade_slide_in.dart';
 import 'media_placeholder_art.dart';
 
 class DroppingSoonCard extends StatelessWidget {
@@ -14,10 +18,17 @@ class DroppingSoonCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final item = entry.item;
     final heroTag = 'cover-${item.id}';
+    final accent = accentColorForBaseType(item.baseType);
 
-    return GestureDetector(
+    return PressScale(
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => DetailScreen(item: item, heroTag: heroTag)),
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 320),
+          pageBuilder: (_, animation, _) => FadeTransition(
+            opacity: animation,
+            child: DetailScreen(item: item, heroTag: heroTag),
+          ),
+        ),
       ),
       child: Container(
         width: 280,
@@ -26,7 +37,13 @@ class DroppingSoonCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
+              color: accent.withValues(alpha: 0.28),
+              blurRadius: 28,
+              spreadRadius: -6,
+              offset: const Offset(0, 14),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.45),
               blurRadius: 16,
               offset: const Offset(0, 8),
             ),
@@ -52,11 +69,22 @@ class DroppingSoonCard extends StatelessWidget {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withValues(alpha: 0.85),
+                    Colors.black.withValues(alpha: 0.88),
                   ],
-                  stops: const [0.4, 1],
+                  stops: const [0.35, 1],
                 ),
               ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+            ),
+            Positioned(
+              left: 14,
+              top: 14,
+              child: _CategoryBadge(baseType: item.baseType, accent: accent),
             ),
             Positioned(
               left: 16,
@@ -86,14 +114,41 @@ class DroppingSoonCard extends StatelessWidget {
                     ),
                     separatorStyle: const TextStyle(color: Colors.white70, fontSize: 15),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
+                      color: accent.withValues(alpha: 0.28),
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: accent.withValues(alpha: 0.4)),
                     ),
                   ),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryBadge extends StatelessWidget {
+  const _CategoryBadge({required this.baseType, required this.accent});
+
+  final MediaBaseType baseType;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.3),
+            shape: BoxShape.circle,
+            border: Border.all(color: accent.withValues(alpha: 0.55)),
+          ),
+          child: Icon(iconForBaseType(baseType), size: 14, color: Colors.white),
         ),
       ),
     );

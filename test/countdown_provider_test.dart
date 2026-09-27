@@ -59,6 +59,22 @@ void main() {
       expect(container.read(nextReleaseDateProvider(item)), isNull);
     });
 
+    test('TV: nextEpisodeDate overrides the weekday-based countdown', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final delayed = DateTime.now().add(const Duration(days: 9));
+      final item = MediaItem()
+        ..title = 'Delayed Show'
+        ..baseType = MediaBaseType.tv
+        ..tvData = (TvData()
+          ..status = TvStatus.airing
+          ..releaseDayOfWeek = DateTime.now().weekday
+          ..nextEpisodeDate = delayed);
+
+      expect(container.read(nextReleaseDateProvider(item)), delayed);
+    });
+
     test('Movie: resolves the configured releaseDate', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);

@@ -31,6 +31,22 @@ List<Color> gradientForBaseType(MediaBaseType type) {
   }
 }
 
+/// Bright per-category accent used for badges, chips, glows, and progress
+/// bars — a saturated pop against the dark theme, distinct from the muted
+/// [gradientForBaseType] used behind poster art.
+Color accentColorForBaseType(MediaBaseType type) {
+  switch (type) {
+    case MediaBaseType.tv:
+      return const Color(0xff8c6bff);
+    case MediaBaseType.movie:
+      return const Color(0xffe8496e);
+    case MediaBaseType.anime:
+      return const Color(0xff2fd9a8);
+    case MediaBaseType.music:
+      return const Color(0xfff5a93f);
+  }
+}
+
 /// Renders [imagePath] — a local file path or an http(s) URL (e.g. from
 /// AniList) — if resolvable, otherwise a themed gradient placeholder keyed
 /// off the item's [baseType].
@@ -74,12 +90,25 @@ class MediaPlaceholderArt extends StatelessWidget {
     if (path == null || path.isEmpty) {
       child = _placeholder();
     } else if (path.startsWith('http://') || path.startsWith('https://')) {
-      child = Image.network(
-        path,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _placeholder(),
-        loadingBuilder: (context, child, progress) =>
-            progress == null ? child : _placeholder(),
+      child = Stack(
+        fit: StackFit.expand,
+        children: [
+          _placeholder(),
+          Image.network(
+            path,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            frameBuilder: (context, img, frame, wasSynchronouslyLoaded) {
+              if (wasSynchronouslyLoaded) return img;
+              return AnimatedOpacity(
+                opacity: frame == null ? 0 : 1,
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeOut,
+                child: img,
+              );
+            },
+          ),
+        ],
       );
     } else if (!kIsWeb && File(path).existsSync()) {
       child = Image.file(File(path), fit: BoxFit.cover);

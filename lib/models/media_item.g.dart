@@ -1459,16 +1459,31 @@ const TvDataSchema = Schema(
       name: r'currentSeason',
       type: IsarType.long,
     ),
-    r'releaseDayOfWeek': PropertySchema(
+    r'nextEpisodeDate': PropertySchema(
       id: 1,
+      name: r'nextEpisodeDate',
+      type: IsarType.dateTime,
+    ),
+    r'nextEpisodeNumber': PropertySchema(
+      id: 2,
+      name: r'nextEpisodeNumber',
+      type: IsarType.long,
+    ),
+    r'releaseDayOfWeek': PropertySchema(
+      id: 3,
       name: r'releaseDayOfWeek',
       type: IsarType.long,
     ),
     r'status': PropertySchema(
-      id: 2,
+      id: 4,
       name: r'status',
       type: IsarType.string,
       enumMap: _TvDatastatusEnumValueMap,
+    ),
+    r'totalEpisodes': PropertySchema(
+      id: 5,
+      name: r'totalEpisodes',
+      type: IsarType.long,
     )
   },
   estimateSize: _tvDataEstimateSize,
@@ -1494,8 +1509,11 @@ void _tvDataSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeLong(offsets[0], object.currentSeason);
-  writer.writeLong(offsets[1], object.releaseDayOfWeek);
-  writer.writeString(offsets[2], object.status.name);
+  writer.writeDateTime(offsets[1], object.nextEpisodeDate);
+  writer.writeLong(offsets[2], object.nextEpisodeNumber);
+  writer.writeLong(offsets[3], object.releaseDayOfWeek);
+  writer.writeString(offsets[4], object.status.name);
+  writer.writeLong(offsets[5], object.totalEpisodes);
 }
 
 TvData _tvDataDeserialize(
@@ -1506,10 +1524,13 @@ TvData _tvDataDeserialize(
 ) {
   final object = TvData();
   object.currentSeason = reader.readLongOrNull(offsets[0]);
-  object.releaseDayOfWeek = reader.readLongOrNull(offsets[1]);
+  object.nextEpisodeDate = reader.readDateTimeOrNull(offsets[1]);
+  object.nextEpisodeNumber = reader.readLongOrNull(offsets[2]);
+  object.releaseDayOfWeek = reader.readLongOrNull(offsets[3]);
   object.status =
-      _TvDatastatusValueEnumMap[reader.readStringOrNull(offsets[2])] ??
+      _TvDatastatusValueEnumMap[reader.readStringOrNull(offsets[4])] ??
           TvStatus.airing;
+  object.totalEpisodes = reader.readLongOrNull(offsets[5]);
   return object;
 }
 
@@ -1523,10 +1544,16 @@ P _tvDataDeserializeProp<P>(
     case 0:
       return (reader.readLongOrNull(offset)) as P;
     case 1:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 2:
+      return (reader.readLongOrNull(offset)) as P;
+    case 3:
+      return (reader.readLongOrNull(offset)) as P;
+    case 4:
       return (_TvDatastatusValueEnumMap[reader.readStringOrNull(offset)] ??
           TvStatus.airing) as P;
+    case 5:
+      return (reader.readLongOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -1605,6 +1632,149 @@ extension TvDataQueryFilter on QueryBuilder<TvData, TvData, QFilterCondition> {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
         property: r'currentSeason',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition> nextEpisodeDateIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'nextEpisodeDate',
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition>
+      nextEpisodeDateIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'nextEpisodeDate',
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition> nextEpisodeDateEqualTo(
+      DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'nextEpisodeDate',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition>
+      nextEpisodeDateGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'nextEpisodeDate',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition> nextEpisodeDateLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'nextEpisodeDate',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition> nextEpisodeDateBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'nextEpisodeDate',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition>
+      nextEpisodeNumberIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'nextEpisodeNumber',
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition>
+      nextEpisodeNumberIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'nextEpisodeNumber',
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition> nextEpisodeNumberEqualTo(
+      int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'nextEpisodeNumber',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition>
+      nextEpisodeNumberGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'nextEpisodeNumber',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition> nextEpisodeNumberLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'nextEpisodeNumber',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition> nextEpisodeNumberBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'nextEpisodeNumber',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -1810,6 +1980,75 @@ extension TvDataQueryFilter on QueryBuilder<TvData, TvData, QFilterCondition> {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'status',
         value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition> totalEpisodesIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'totalEpisodes',
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition> totalEpisodesIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'totalEpisodes',
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition> totalEpisodesEqualTo(
+      int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'totalEpisodes',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition> totalEpisodesGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'totalEpisodes',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition> totalEpisodesLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'totalEpisodes',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TvData, TvData, QAfterFilterCondition> totalEpisodesBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'totalEpisodes',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }

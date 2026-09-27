@@ -7,8 +7,12 @@ import '../models/media_item.dart';
 final nextReleaseDateProvider = Provider.family<DateTime?, MediaItem>((ref, item) {
   switch (item.baseType) {
     case MediaBaseType.tv:
-      final day = item.tvData?.releaseDayOfWeek;
-      if (item.tvData?.status == TvStatus.ended || day == null) return null;
+      final tv = item.tvData;
+      if (tv == null || tv.status == TvStatus.ended) return null;
+      final override = tv.nextEpisodeDate;
+      if (override != null) return override;
+      final day = tv.releaseDayOfWeek;
+      if (day == null) return null;
       return nextWeekdayOccurrence(DateTime.now(), day);
     case MediaBaseType.anime:
       return item.animeData?.nextAiringEpisodeTimestamp;
