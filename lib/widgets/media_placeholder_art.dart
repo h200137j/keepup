@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../models/media_item.dart';
+import '../theme/app_theme.dart';
 
 IconData iconForBaseType(MediaBaseType type) {
   switch (type) {
@@ -18,54 +19,73 @@ IconData iconForBaseType(MediaBaseType type) {
   }
 }
 
-List<Color> gradientForBaseType(MediaBaseType type) {
+String labelForBaseType(MediaBaseType type) {
   switch (type) {
     case MediaBaseType.tv:
-      return const [Color(0xff2b2e6b), Color(0xff141626)];
+      return 'TV';
     case MediaBaseType.movie:
-      return const [Color(0xff6b1f3a), Color(0xff1c1020)];
+      return 'Movie';
     case MediaBaseType.anime:
-      return const [Color(0xff1f6b5f), Color(0xff0f1e1c)];
+      return 'Anime';
     case MediaBaseType.music:
-      return const [Color(0xff6b4f1f), Color(0xff1e180f)];
+      return 'Music';
   }
 }
 
-/// Bright per-category accent used for badges, chips, glows, and progress
-/// bars — a saturated pop against the dark theme, distinct from the muted
-/// [gradientForBaseType] used behind poster art.
+/// Deep backdrop pair behind placeholder art, tinted toward the category hue.
+List<Color> gradientForBaseType(MediaBaseType type) {
+  final accent = accentColorForBaseType(type);
+  return [Color.lerp(KColors.raisedHi, accent, 0.35)!, KColors.inkDeep];
+}
+
+/// Per-category hue for timeline nodes, tags, and episode bars. Tuned to sit
+/// together on the dusk-indigo background without competing with the
+/// sodium "now" accent.
 Color accentColorForBaseType(MediaBaseType type) {
   switch (type) {
     case MediaBaseType.tv:
-      return const Color(0xff8c6bff);
+      return const Color(0xff8fa8ff);
     case MediaBaseType.movie:
-      return const Color(0xffe8496e);
+      return const Color(0xffff7a93);
     case MediaBaseType.anime:
-      return const Color(0xff2fd9a8);
+      return const Color(0xff5ce6c0);
     case MediaBaseType.music:
-      return const Color(0xfff5a93f);
+      return const Color(0xffe58cff);
   }
 }
 
 /// Renders [imagePath] — a local file path or an http(s) URL (e.g. from
-/// AniList) — if resolvable, otherwise a themed gradient placeholder keyed
-/// off the item's [baseType].
+/// AniList) — if resolvable. Otherwise draws a typographic poster: the
+/// [title] set in condensed display type over a category-tinted backdrop.
 class MediaPlaceholderArt extends StatelessWidget {
   const MediaPlaceholderArt({
     super.key,
     required this.baseType,
     this.imagePath,
+    this.title,
     this.borderRadius = BorderRadius.zero,
     this.iconSize = 40,
   });
 
   final MediaBaseType baseType;
   final String? imagePath;
+  final String? title;
   final BorderRadius borderRadius;
   final double iconSize;
 
+  /// Shrinks the type until the longest word fits on one line, so titles
+  /// never break mid-word. Big Shoulders averages ~0.48em per glyph.
+  static double _fitSize(String text, double width, double maxSize) {
+    final longest = text.split(RegExp(r'\s+')).fold<int>(0, (m, w) => w.length > m ? w.length : m);
+    if (longest == 0) return maxSize;
+    return (width / (longest * 0.48)).clamp(6, maxSize);
+  }
+
   Widget _placeholder() {
-    return Container(
+    final accent = accentColorForBaseType(baseType);
+    final t = title?.trim();
+
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -73,12 +93,31 @@ class MediaPlaceholderArt extends StatelessWidget {
           colors: gradientForBaseType(baseType),
         ),
       ),
-      alignment: Alignment.center,
-      child: Icon(
-        iconForBaseType(baseType),
-        size: iconSize,
-        color: Colors.white.withValues(alpha: 0.55),
-      ),
+      child: t == null || t.isEmpty
+          ? Center(
+              child: Icon(iconForBaseType(baseType), size: iconSize, color: accent.withValues(alpha: 0.6)),
+            )
+          : LayoutBuilder(
+              builder: (context, c) => Padding(
+                padding: EdgeInsets.all(c.maxWidth * 0.09),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(iconForBaseType(baseType), size: c.maxWidth * 0.14, color: accent),
+                    const Spacer(),
+                    Text(
+                      t,
+                      maxLines: 4,
+                      overflow: TextOverflow.clip,
+                      style: KType.headline(
+                        _fitSize(t, c.maxWidth * 0.82, c.maxWidth * 0.2),
+                        color: KColors.text.withValues(alpha: 0.92),
+                      ).copyWith(fontWeight: FontWeight.w800, height: 0.92),
+                    ),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 

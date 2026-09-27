@@ -6,19 +6,11 @@ import 'package:intl/intl.dart';
 import '../models/media_item.dart';
 import '../providers/media_provider.dart';
 import '../services/image_storage_service.dart';
-import '../widgets/fade_slide_in.dart';
+import '../theme/app_theme.dart';
+import '../utils/media_text.dart';
+import '../utils/time_format.dart';
 import '../widgets/media_placeholder_art.dart';
 import 'anilist_search_sheet.dart';
-
-const _weekdayNames = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-];
 
 /// Create/edit form for a [MediaItem]. Pass an existing [item] to edit it
 /// in place; omit it to create a new one.
@@ -144,53 +136,79 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final accent = accentColorForBaseType(_baseType);
+
     return Scaffold(
-      appBar: AppBar(title: Text(_isNew ? 'Add title' : 'Edit title')),
+      appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Discard',
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        title: Text(_isNew ? 'New title' : 'Edit title'),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+          child: FilledButton(
+            onPressed: _saving ? null : _save,
+            child: _saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: KColors.inkDeep),
+                  )
+                : Text(_isNew ? 'Start counting down' : 'Save changes'),
+          ),
+        ),
+      ),
       body: Form(
         key: _formKey,
-        child: FadeSlideIn(
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              _CategorySelector(
-                selected: _baseType,
-                onChanged: (v) => setState(() => _baseType = v),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+          children: [
+            _CategorySelector(selected: _baseType, onChanged: (v) => setState(() => _baseType = v)),
+            const SizedBox(height: 18),
+            TextFormField(
+              controller: _titleController,
+              textCapitalization: TextCapitalization.words,
+              style: KType.headline(40).copyWith(fontWeight: FontWeight.w800),
+              cursorColor: accent,
+              decoration: InputDecoration(
+                hintText: 'Title',
+                hintStyle: KType.headline(40).copyWith(fontWeight: FontWeight.w800, color: KColors.faint),
+                filled: false,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                border: const UnderlineInputBorder(borderSide: BorderSide(color: KColors.line, width: 2)),
+                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: KColors.line, width: 2)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: accent, width: 2)),
+                errorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: KColors.danger, width: 2)),
+                focusedErrorBorder: const UnderlineInputBorder(borderSide: BorderSide(color: KColors.danger, width: 2)),
               ),
-              const SizedBox(height: 24),
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Title is required' : null,
-              ),
-              const SizedBox(height: 20),
-              if (_baseType == MediaBaseType.anime) ...[
-                OutlinedButton.icon(
-                  onPressed: _searchAniList,
-                  icon: const Icon(Icons.search),
-                  label: const Text('Search AniList'),
-                ),
-                if (_animeData.aniListId != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      'Linked to AniList #${_animeData.aniListId}',
-                      style: const TextStyle(color: Colors.white54, fontSize: 12),
-                    ),
-                  ),
-                const SizedBox(height: 20),
-              ],
-              const _FieldSectionLabel('Artwork'),
-              const SizedBox(height: 12),
-              Row(
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Give it a title so you can find it later' : null,
+            ),
+            if (_baseType == MediaBaseType.anime) ...[
+              const SizedBox(height: 14),
+              _AniListButton(linkedId: _animeData.aniListId, accent: accent, onPressed: _searchAniList),
+            ],
+            const SizedBox(height: 32),
+            const _SectionLabel(
+              'Artwork',
+              hint: 'Tap to pick from your photos. Without art, the title is set as a poster.',
+            ),
+            const SizedBox(height: 14),
+            ValueListenableBuilder(
+              valueListenable: _titleController,
+              builder: (context, value, _) => Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    width: 110,
+                    width: 104,
                     child: _ImagePickerTile(
                       label: 'Poster',
-                      hint: '2:3 · 500×750px+',
                       aspectRatio: 2 / 3,
                       path: _posterImagePath,
+                      title: value.text,
                       baseType: _baseType,
                       onPick: () => _pickImage(isPoster: true),
                     ),
@@ -198,33 +216,25 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                   const SizedBox(width: 14),
                   Expanded(
                     child: _ImagePickerTile(
-                      label: 'Cover',
-                      hint: '16:9 · 1280×720px+',
+                      label: 'Backdrop',
                       aspectRatio: 16 / 9,
                       path: _coverImagePath,
+                      title: null,
                       baseType: _baseType,
                       onPick: () => _pickImage(isPoster: false),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 28),
-              _FieldSectionLabel(_detailsLabel(_baseType)),
-              const SizedBox(height: 12),
-              _buildTypeFields(),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _saving ? null : _save,
-                  child: _saving
-                      ? const SizedBox(
-                          width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('Save'),
-                ),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 32),
+            _SectionLabel(_detailsLabel(_baseType)),
+            const SizedBox(height: 14),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: KeyedSubtree(key: ValueKey(_baseType), child: _buildTypeFields()),
+            ),
+          ],
         ),
       ),
     );
@@ -246,63 +256,77 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
   String _detailsLabel(MediaBaseType type) {
     switch (type) {
       case MediaBaseType.tv:
-        return 'TV details';
+        return 'Schedule';
       case MediaBaseType.movie:
-        return 'Movie details';
+        return 'Release';
       case MediaBaseType.anime:
-        return 'Anime details';
+        return 'Schedule';
       case MediaBaseType.music:
-        return 'Music details';
+        return 'Release';
     }
   }
 }
 
-class _FieldSectionLabel extends StatelessWidget {
-  const _FieldSectionLabel(this.label);
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.label, {this.hint});
 
   final String label;
+  final String? hint;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      label.toUpperCase(),
-      style: const TextStyle(
-        color: Colors.white38,
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.8,
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: KType.headline(26)),
+        if (hint != null) ...[const SizedBox(height: 4), Text(hint!, style: KType.small)],
+      ],
     );
   }
 }
 
+/// Four large type-set words; the selected one lights up in its category
+/// colour. The choice sets the tone for the rest of the form.
 class _CategorySelector extends StatelessWidget {
   const _CategorySelector({required this.selected, required this.onChanged});
 
   final MediaBaseType selected;
   final ValueChanged<MediaBaseType> onChanged;
 
-  static const _labels = {
-    MediaBaseType.tv: 'TV',
-    MediaBaseType.movie: 'Movie',
-    MediaBaseType.anime: 'Anime',
-    MediaBaseType.music: 'Music',
-  };
-
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
       children: [
         for (final type in MediaBaseType.values)
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(right: type == MediaBaseType.values.last ? 0 : 8),
-              child: _CategoryOption(
-                label: _labels[type]!,
-                icon: iconForBaseType(type),
-                accent: accentColorForBaseType(type),
-                selected: selected == type,
-                onTap: () => onChanged(type),
+          Semantics(
+            selected: selected == type,
+            button: true,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => onChanged(type),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: selected == type ? 1 : 0.0,
+                      child: Icon(iconForBaseType(type), size: 18, color: accentColorForBaseType(type)),
+                    ),
+                    const SizedBox(width: 4),
+                    AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 200),
+                      style: KType.headline(26).copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: selected == type ? accentColorForBaseType(type) : KColors.faint,
+                      ),
+                      child: Text(labelForBaseType(type)),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -311,47 +335,46 @@ class _CategorySelector extends StatelessWidget {
   }
 }
 
-class _CategoryOption extends StatelessWidget {
-  const _CategoryOption({
-    required this.label,
-    required this.icon,
-    required this.accent,
-    required this.selected,
-    required this.onTap,
-  });
+class _AniListButton extends StatelessWidget {
+  const _AniListButton({required this.linkedId, required this.accent, required this.onPressed});
 
-  final String label;
-  final IconData icon;
+  final String? linkedId;
   final Color accent;
-  final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: selected ? accent.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: selected ? accent.withValues(alpha: 0.65) : Colors.white.withValues(alpha: 0.08)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 20, color: selected ? accent : Colors.white54),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected ? Colors.white : Colors.white54,
+    return Material(
+      color: accent.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(Icons.travel_explore_rounded, color: accent),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      linkedId == null ? 'Find it on AniList' : 'Linked to AniList #$linkedId',
+                      style: KType.title.copyWith(fontSize: 15),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      linkedId == null ? 'Fills in the title, art, and next airing time' : 'Search again to replace',
+                      style: KType.small,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              Icon(Icons.chevron_right_rounded, color: KColors.muted),
+            ],
+          ),
         ),
       ),
     );
@@ -362,68 +385,161 @@ class _ImagePickerTile extends StatelessWidget {
   const _ImagePickerTile({
     required this.label,
     required this.path,
+    required this.title,
     required this.baseType,
     required this.onPick,
     required this.aspectRatio,
-    required this.hint,
   });
 
   final String label;
   final String? path;
+  final String? title;
   final MediaBaseType baseType;
   final VoidCallback onPick;
   final double aspectRatio;
-  final String hint;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPick,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AspectRatio(
-            aspectRatio: aspectRatio,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
+    return Semantics(
+      button: true,
+      label: 'Choose $label image',
+      child: GestureDetector(
+        onTap: onPick,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: aspectRatio,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  MediaPlaceholderArt(baseType: baseType, imagePath: path, borderRadius: BorderRadius.circular(14)),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                  MediaPlaceholderArt(
+                    baseType: baseType,
+                    imagePath: path,
+                    title: (title?.trim().isEmpty ?? true) ? null : title,
+                    borderRadius: BorderRadius.circular(14),
+                    iconSize: 28,
                   ),
                   Positioned(
-                    right: 6,
-                    bottom: 6,
+                    right: 8,
+                    top: 8,
                     child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.edit_rounded, size: 14, color: Colors.white),
+                      padding: const EdgeInsets.all(7),
+                      decoration: const BoxDecoration(color: KColors.sodium, shape: BoxShape.circle),
+                      child: const Icon(Icons.add_photo_alternate_rounded, size: 15, color: KColors.inkDeep),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
-          Text(
-            hint,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white38, fontSize: 11),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(label, style: KType.meta.copyWith(color: KColors.text)),
+          ],
+        ),
       ),
     );
   }
 }
+
+/// Segmented single choice rendered as pills.
+class _Choice<T> extends StatelessWidget {
+  const _Choice({
+    required this.values,
+    required this.selected,
+    required this.label,
+    required this.onChanged,
+    required this.accent,
+  });
+
+  final List<T> values;
+  final T? selected;
+  final String Function(T) label;
+  final ValueChanged<T> onChanged;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final v in values)
+          Semantics(
+            selected: v == selected,
+            button: true,
+            child: GestureDetector(
+              onTap: () => onChanged(v),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                decoration: BoxDecoration(
+                  color: v == selected ? accent : KColors.raised,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  label(v),
+                  style: KType.title.copyWith(fontSize: 14, color: v == selected ? KColors.inkDeep : KColors.text),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(text, style: KType.meta),
+  );
+}
+
+/// Seven day dots, Monday first, for a weekly release slot.
+class _WeekdayPicker extends StatelessWidget {
+  const _WeekdayPicker({required this.selected, required this.onChanged, required this.accent});
+
+  final int? selected;
+  final ValueChanged<int> onChanged;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        for (var d = 1; d <= 7; d++)
+          Semantics(
+            selected: selected == d,
+            button: true,
+            label: weekdayNames[d - 1],
+            excludeSemantics: true,
+            child: GestureDetector(
+              onTap: () => onChanged(d),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: selected == d ? accent : KColors.raised),
+                child: Text(
+                  weekdayNames[d - 1].substring(0, 2),
+                  style: KType.title.copyWith(fontSize: 14, color: selected == d ? KColors.inkDeep : KColors.muted),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+InputDecoration _num(String label) => InputDecoration(labelText: label);
 
 class _TvFields extends StatelessWidget {
   const _TvFields({required this.data, required this.onChanged});
@@ -433,112 +549,96 @@ class _TvFields extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = accentColorForBaseType(MediaBaseType.tv);
+    final ended = data.status == TvStatus.ended;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextFormField(
-          initialValue: data.currentSeason?.toString() ?? '',
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Current season', border: OutlineInputBorder()),
-          onChanged: (v) => data.currentSeason = int.tryParse(v),
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<TvStatus>(
-          initialValue: data.status,
-          decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
-          items: TvStatus.values
-              .map((s) => DropdownMenuItem(value: s, child: Text(s.name)))
-              .toList(),
+        const _FieldLabel('Status'),
+        _Choice<TvStatus>(
+          values: TvStatus.values,
+          selected: data.status,
+          label: tvStatusLabel,
+          accent: accent,
           onChanged: (v) {
-            if (v != null) data.status = v;
+            data.status = v;
             onChanged();
           },
         ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<int>(
-          initialValue: data.releaseDayOfWeek,
-          decoration: const InputDecoration(labelText: 'Release day', border: OutlineInputBorder()),
-          items: List.generate(
-            7,
-            (i) => DropdownMenuItem(value: i + 1, child: Text(_weekdayNames[i])),
+        if (!ended) ...[
+          const SizedBox(height: 22),
+          const _FieldLabel('New episodes every'),
+          _WeekdayPicker(
+            selected: data.releaseDayOfWeek,
+            accent: accent,
+            onChanged: (v) {
+              data.releaseDayOfWeek = v;
+              onChanged();
+            },
           ),
-          onChanged: (v) {
-            if (v != null) data.releaseDayOfWeek = v;
-            onChanged();
-          },
-        ),
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xff8c6bff).withValues(alpha: 0.07),
-            borderRadius: BorderRadius.circular(16),
-            border: Border(left: BorderSide(color: const Color(0xff8c6bff).withValues(alpha: 0.6), width: 3)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.visibility_rounded, size: 16, color: Color(0xffb9a6ff)),
-                  const SizedBox(width: 6),
-                  Text('Already watching?', style: Theme.of(context).textTheme.labelLarge),
-                ],
+        ],
+        const SizedBox(height: 22),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                initialValue: data.currentSeason?.toString() ?? '',
+                keyboardType: TextInputType.number,
+                decoration: _num('Season'),
+                onChanged: (v) => data.currentSeason = int.tryParse(v),
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'Set where you are if this show is already in progress.',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      initialValue: data.nextEpisodeNumber?.toString() ?? '',
-                      keyboardType: TextInputType.number,
-                      decoration:
-                          const InputDecoration(labelText: 'Next episode #', border: OutlineInputBorder()),
-                      onChanged: (v) => data.nextEpisodeNumber = int.tryParse(v),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      initialValue: data.totalEpisodes?.toString() ?? '',
-                      keyboardType: TextInputType.number,
-                      decoration:
-                          const InputDecoration(labelText: 'Total episodes', border: OutlineInputBorder()),
-                      onChanged: (v) => data.totalEpisodes = int.tryParse(v),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _DateTimePickerField(
-                label: 'Next episode date (override)',
-                value: data.nextEpisodeDate,
-                includeTime: true,
-                onChanged: (dt) {
-                  data.nextEpisodeDate = dt;
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                initialValue: data.nextEpisodeNumber?.toString() ?? '',
+                keyboardType: TextInputType.number,
+                decoration: _num('Next episode'),
+                onChanged: (v) {
+                  data.nextEpisodeNumber = int.tryParse(v);
                   onChanged();
                 },
-                onClear: data.nextEpisodeDate == null
-                    ? null
-                    : () {
-                        data.nextEpisodeDate = null;
-                        onChanged();
-                      },
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'Overrides the release-day countdown for a one-off delay. Clear '
-                'it to go back to the weekly schedule above.',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                initialValue: data.totalEpisodes?.toString() ?? '',
+                keyboardType: TextInputType.number,
+                decoration: _num('Episodes'),
+                onChanged: (v) {
+                  data.totalEpisodes = int.tryParse(v);
+                  onChanged();
+                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+        const SizedBox(height: 6),
+        const Text('Already partway through? Set the episode you\'re waiting on.', style: KType.small),
+        if (!ended) ...[
+          const SizedBox(height: 22),
+          _DateTimePickerField(
+            label: 'One-off date for the next episode',
+            placeholder: 'Follows the weekly slot',
+            value: data.nextEpisodeDate,
+            includeTime: true,
+            accent: accent,
+            onChanged: (dt) {
+              data.nextEpisodeDate = dt;
+              onChanged();
+            },
+            onClear: data.nextEpisodeDate == null
+                ? null
+                : () {
+                    data.nextEpisodeDate = null;
+                    onChanged();
+                  },
+          ),
+          const SizedBox(height: 6),
+          const Text('For a delayed or moved episode. Clear it to go back to the weekly slot.', style: KType.small),
+        ],
       ],
     );
   }
@@ -559,6 +659,7 @@ class _MovieFields extends StatelessWidget {
           label: 'Release date',
           value: data.releaseDate,
           includeTime: false,
+          accent: accentColorForBaseType(MediaBaseType.movie),
           onChanged: (dt) {
             data.releaseDate = dt;
             onChanged();
@@ -568,7 +669,7 @@ class _MovieFields extends StatelessWidget {
         TextFormField(
           initialValue: data.runtimeMinutes?.toString() ?? '',
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Runtime (minutes)', border: OutlineInputBorder()),
+          decoration: _num('Runtime in minutes'),
           onChanged: (v) => data.runtimeMinutes = int.tryParse(v),
         ),
       ],
@@ -584,17 +685,29 @@ class _AnimeFields extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = accentColorForBaseType(MediaBaseType.anime);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        DropdownButtonFormField<AnimeFormat>(
-          initialValue: data.format,
-          decoration: const InputDecoration(labelText: 'Format', border: OutlineInputBorder()),
-          items: AnimeFormat.values
-              .map((f) => DropdownMenuItem(value: f, child: Text(f.name.toUpperCase())))
-              .toList(),
+        const _FieldLabel('Format'),
+        _Choice<AnimeFormat>(
+          values: AnimeFormat.values,
+          selected: data.format,
+          label: animeFormatLabel,
+          accent: accent,
           onChanged: (v) {
-            if (v != null) data.format = v;
+            data.format = v;
+            onChanged();
+          },
+        ),
+        const SizedBox(height: 22),
+        _DateTimePickerField(
+          label: 'Next episode airs',
+          value: data.nextAiringEpisodeTimestamp,
+          includeTime: true,
+          accent: accent,
+          onChanged: (dt) {
+            data.nextAiringEpisodeTimestamp = dt;
             onChanged();
           },
         ),
@@ -602,18 +715,8 @@ class _AnimeFields extends StatelessWidget {
         TextFormField(
           initialValue: data.cour?.toString() ?? '',
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Cour', border: OutlineInputBorder()),
+          decoration: _num('Cour'),
           onChanged: (v) => data.cour = int.tryParse(v),
-        ),
-        const SizedBox(height: 16),
-        _DateTimePickerField(
-          label: 'Next episode airs',
-          value: data.nextAiringEpisodeTimestamp,
-          includeTime: true,
-          onChanged: (dt) {
-            data.nextAiringEpisodeTimestamp = dt;
-            onChanged();
-          },
         ),
       ],
     );
@@ -635,6 +738,7 @@ class _MusicFields extends StatelessWidget {
           label: 'Release date',
           value: data.releaseDate,
           includeTime: false,
+          accent: accentColorForBaseType(MediaBaseType.music),
           onChanged: (dt) {
             data.releaseDate = dt;
             onChanged();
@@ -644,7 +748,7 @@ class _MusicFields extends StatelessWidget {
         TextFormField(
           initialValue: data.trackCount?.toString() ?? '',
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Track count', border: OutlineInputBorder()),
+          decoration: _num('Number of tracks'),
           onChanged: (v) => data.trackCount = int.tryParse(v),
         ),
       ],
@@ -658,12 +762,16 @@ class _DateTimePickerField extends StatelessWidget {
     required this.value,
     required this.onChanged,
     required this.includeTime,
+    required this.accent,
+    this.placeholder = 'Choose a date',
     this.onClear,
   });
 
   final String label;
+  final String placeholder;
   final DateTime? value;
   final bool includeTime;
+  final Color accent;
   final ValueChanged<DateTime?> onChanged;
   final VoidCallback? onClear;
 
@@ -692,30 +800,41 @@ class _DateTimePickerField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final display = value == null
-        ? 'Not set'
-        : includeTime
-            ? DateFormat.yMMMd().add_jm().format(value!)
-            : DateFormat.yMMMd().format(value!);
-
-    return InkWell(
-      onTap: () => _pick(context),
-      child: InputDecorator(
-        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
-        child: Row(
-          children: [
-            Expanded(child: Text(display)),
-            if (onClear != null)
-              IconButton(
-                icon: const Icon(Icons.close, size: 18),
-                onPressed: onClear,
-                tooltip: 'Clear',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+    final v = value;
+    return Material(
+      color: KColors.raised,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _pick(context),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+          child: Row(
+            children: [
+              Icon(Icons.event_rounded, color: v == null ? KColors.muted : accent),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: KType.small),
+                    const SizedBox(height: 2),
+                    Text(
+                      v == null ? placeholder : (includeTime ? whenLabel(v) : DateFormat('EEEE d MMMM y').format(v)),
+                      style: KType.title.copyWith(fontSize: 15, color: v == null ? KColors.faint : KColors.text),
+                    ),
+                  ],
+                ),
               ),
-            const SizedBox(width: 8),
-            const Icon(Icons.calendar_today, size: 18),
-          ],
+              if (onClear != null)
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                  color: KColors.muted,
+                  onPressed: onClear,
+                  tooltip: 'Clear date',
+                ),
+            ],
+          ),
         ),
       ),
     );

@@ -32,37 +32,69 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 /// Category filter for the dashboard; null means "all".
 final categoryFilterProvider = StateProvider<MediaBaseType?>((ref) => null);
 
-List<MediaWithDate> _datedEntries(Ref ref) {
+Iterable<MediaItem> _filteredItems(Ref ref) {
   final items = ref.watch(mediaListProvider).value ?? [];
   final query = ref.watch(searchQueryProvider).trim().toLowerCase();
   final category = ref.watch(categoryFilterProvider);
 
-  final filtered = items.where((item) {
+  return items.where((item) {
     if (category != null && item.baseType != category) return false;
     if (query.isNotEmpty && !item.title.toLowerCase().contains(query)) return false;
     return true;
   });
+}
 
+List<MediaWithDate> _datedEntries(Ref ref) {
   final dated = <MediaWithDate>[];
-  for (final item in filtered) {
+  for (final item in _filteredItems(ref)) {
     final next = ref.watch(nextReleaseDateProvider(item));
     if (next != null) dated.add(MediaWithDate(item, next));
   }
   return dated..sort((a, b) => a.nextDate.compareTo(b.nextDate));
 }
 
-/// Items releasing inside the next 24h, soonest first — hero carousel feed.
-final droppingSoonProvider = Provider<List<MediaWithDate>>((ref) {
+DateTime _startOfToday() {
   final now = DateTime.now();
-  return _datedEntries(ref)
-      .where((m) => !m.nextDate.isBefore(now) && m.nextDate.difference(now) < const Duration(hours: 24))
-      .toList();
+  return DateTime(now.year, now.month, now.day);
+}
+
+/// Everything releasing today or later, soonest first — the time rail.
+/// Uses start-of-day rather than "now" so a weekly show whose date is
+/// today (stored as midnight) still counts as upcoming tonight.
+final timelineProvider = Provider<List<MediaWithDate>>((ref) {
+  final today = _startOfToday();
+  return _datedEntries(ref).where((m) => !m.nextDate.isBefore(today)).toList();
 });
 
-/// Everything releasing 24h+ out, soonest first — tracking grid feed.
-final trackingGridProvider = Provider<List<MediaWithDate>>((ref) {
+/// The next release that still has time left on the clock — the hero.
+final nextUpProvider = Provider<MediaWithDate?>((ref) {
   final now = DateTime.now();
-  return _datedEntries(ref).where((m) => m.nextDate.difference(now) >= const Duration(hours: 24)).toList();
+  for (final m in ref.watch(timelineProvider)) {
+    if (m.nextDate.isAfter(now)) return m;
+  }
+  return null;
+});
+
+/// Dated before today, most recent first.
+final releasedProvider = Provider<List<MediaWithDate>>((ref) {
+  final today = _startOfToday();
+  return _datedEntries(ref).where((m) => m.nextDate.isBefore(today)).toList().reversed.toList();
+});
+
+/// Tracked items with no known next date (ended shows, unannounced dates).
+final undatedProvider = Provider<List<MediaItem>>((ref) {
+  return _filteredItems(ref).where((item) => ref.watch(nextReleaseDateProvider(item)) == null).toList();
+});
+
+/// Item counts per category (ignoring the category filter itself) for the
+/// filter bar.
+final categoryCountsProvider = Provider<Map<MediaBaseType?, int>>((ref) {
+  final items = ref.watch(mediaListProvider).value ?? [];
+  final counts = <MediaBaseType?, int>{null: items.length};
+  for (final item in items) {
+    counts[item.baseType] = (counts[item.baseType] ?? 0) + 1;
+  }
+  return counts;
 });
 
 /// True once the DB has resolved and genuinely has zero items (not just

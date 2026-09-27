@@ -38,7 +38,6 @@ dependencies:
   intl: ^0.20.3
   path_provider: ^2.1.6
   image_picker: ^1.2.3
-  slide_countdown: ^2.0.2
   isar: ^3.1.0+1
   isar_flutter_libs: ^3.1.0+1
   http: ^1.6.0
@@ -69,6 +68,26 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  fonts:
+    - family: BigShoulders
+      fonts:
+        - asset: assets/fonts/BigShouldersDisplay-500.ttf
+          weight: 500
+        - asset: assets/fonts/BigShouldersDisplay-700.ttf
+          weight: 700
+        - asset: assets/fonts/BigShouldersDisplay-800.ttf
+          weight: 800
+    - family: InstrumentSans
+      fonts:
+        - asset: assets/fonts/InstrumentSans-400.ttf
+          weight: 400
+        - asset: assets/fonts/InstrumentSans-500.ttf
+          weight: 500
+        - asset: assets/fonts/InstrumentSans-600.ttf
+          weight: 600
+        - asset: assets/fonts/InstrumentSans-700.ttf
+          weight: 700
 
   # To add assets to your application, add an assets section, like this:
   # assets:
